@@ -1,0 +1,93 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #4F46E5;
+  --color-primary-container: #818CF8;
+  --color-on-primary: #FFFFFF;
+  --color-on-primary-container: #1E1B4B;
+  
+  --color-secondary: #0EA5E9;
+  --color-secondary-container: #7DD3FC;
+  --color-on-secondary: #FFFFFF;
+  --color-on-secondary-container: #082F49;
+  
+  --color-tertiary: #10B981;
+  --color-tertiary-container: #6EE7B7;
+  --color-on-tertiary: #FFFFFF;
+  --color-on-tertiary-container: #064E3B;
+  
+  --color-error: #EF4444;
+  --color-error-container: #FCA5A5;
+  --color-on-error: #FFFFFF;
+  --color-on-error-container: #7F1D1D;
+  
+  --color-background: #F8FAFC;
+  --color-on-background: #0F172A;
+  
+  --color-surface: #FFFFFF;
+  --color-surface-variant: #F1F5F9;
+  --color-on-surface: #0F172A;
+  --color-on-surface-variant: #475569;
+  
+  --color-surface-container-lowest: #FFFFFF;
+  --color-surface-container-low: #F8FAFC;
+  --color-surface-container: #F1F5F9;
+  --color-surface-container-high: #E2E8F0;
+  --color-surface-container-highest: #CBD5E1;
+  
+  --color-outline: #94A3B8;
+  --color-outline-variant: #CBD5E1;
+
+  --font-headline: var(--font-headline);
+  --font-body: var(--font-body);
+  --font-label: var(--font-label);
+}
+
+@layer base {
+  body {
+    background-color: var(--color-background);
+    color: var(--color-on-background);
+    font-family: var(--font-body);
+  }
+}
+
+.glass-card {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.shimmer-border {
+  position: relative;
+}
+
+.shimmer-border::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(
+    45deg,
+    transparent 25%,
+    rgba(79, 70, 229, 0.2) 50%,
+    transparent 75%
+  );
+  background-size: 200% 200%;
+  animation: shimmer 3s linear infinite;
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}

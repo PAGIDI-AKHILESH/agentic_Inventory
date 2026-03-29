@@ -1,0 +1,215 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model Tenant {
+  id                 String               @id @default(uuid())
+  businessName       String
+  businessType       String?
+  industryVertical   String?
+  subscriptionTier   String               @default("free")
+  status             String               @default("active")
+  settingsJson       String?              // Stored as JSON string
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  isDeleted          Boolean              @default(false)
+  deletedAt          DateTime?
+  domain             String?
+
+  users              User[]
+  inventoryItems     InventoryItem[]
+  salesTransactions  SalesTransaction[]
+  suppliers          Supplier[]
+  purchaseOrders     PurchaseOrder[]
+  agentOutputs       AgentOutput[]
+  auditLogs          AuditLog[]
+  connectorTokens    ConnectorToken[]
+  chatSessions       ChatSession[]
+  documentEmbeddings DocumentEmbedding[]
+}
+
+model User {
+  id                 String               @id @default(uuid())
+  tenantId           String
+  tenant             Tenant               @relation(fields: [tenantId], references: [id])
+  email              String               @unique
+  phoneNumber        String?
+  passwordHash       String
+  role               String               @default("employee") // owner, manager, employee, consultant
+  firstName          String?
+  lastName           String?
+  isEmailVerified    Boolean              @default(false)
+  isPhoneVerified    Boolean              @default(false)
+  mfaEnabled         Boolean              @default(false)
+  telegramChatId     String?              @unique
+  lastLoginAt        DateTime?
+  loginCount         Int                  @default(0)
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  isDeleted          Boolean              @default(false)
+  deletedAt          DateTime?
+}
+
+model InventoryItem {
+  id                 String               @id @default(uuid())
+  tenantId           String
+  tenant             Tenant               @relation(fields: [tenantId], references: [id])
+  sku                String
+  name               String
+  category           String?
+  currentStock       Int                  @default(0)
+  unitCost           Float                @default(0.0)
+  sellingPrice       Float                @default(0.0)
+  leadTimeDays       Int                  @default(0)
+  safetyStockLevel   Int                  @default(0)
+  reorderPoint       Int                  @default(0)
+  supplierId         String?
+  supplier           Supplier?            @relation(fields: [supplierId], references: [id])
+  expiryDate         DateTime?
+  lastUploadedAt     DateTime?
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  isDeleted          Boolean              @default(false)
+  deletedAt          DateTime?
+
+  salesTransactions  SalesTransaction[]
+  purchaseOrders     PurchaseOrder[]
+
+  @@unique([tenantId, sku])
+}
+
+model SalesTransaction {
+  id                 String               @id @default(uuid())
+  tenantId           String
+  tenant             Tenant               @relation(fields: [tenantId], references: [id])
+  itemId             String
+  item               InventoryItem        @relation(fields: [itemId], references: [id])
+  quantitySold       Int
+  unitPrice          Float
+  transactionDate    DateTime             @default(now())
+  channel            String               // online, pos, wholesale
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  isDeleted          Boolean              @default(false)
+  deletedAt          DateTime?
+}
+
+model Supplier {
+  id                 String               @id @default(uuid())
+  tenantId           String
+  tenant             Tenant               @relation(fields: [tenantId], references: [id])
+  name               String
+  contactInfoJson    String?              // Stored as JSON string
+  leadTimeDays       Int                  @default(0)
+  reliabilityScore   Float                @default(0.0)
+  costTier           String?
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  isDeleted          Boolean              @default(false)
+  deletedAt          DateTime?
+
+  inventoryItems     InventoryItem[]
+  purchaseOrders     PurchaseOrder[]
+}
+
+model PurchaseOrder {
+  id                 String               @id @default(uuid())
+  tenantId           String
+  tenant             Tenant               @relation(fields: [tenantId], references: [id])
+  supplierId         String
+  supplier           Supplier             @relation(fields: [supplierId], references: [id])
+  itemId             String
+  item               InventoryItem        @relation(fields: [itemId], references: [id])
+  quantityOrdered    Int
+  unitCost           Float
+  status             String               @default("PENDING_APPROVAL")
+  createdBy          String               // agent or user ID
+  approvedAt         DateTime?
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  isDeleted          Boolean              @default(false)
+  deletedAt          DateTime?
+}
+
+model AgentOutput {
+  id                 String               @id @default(uuid())
+  tenantId           String
+  tenant             Tenant               @relation(fields: [tenantId], references: [id])
+  agentType          String
+  outputJson         String               // Stored as JSON string
+  inputSnapshotJson  String               // Stored as JSON string
+  confidenceScore    Float
+  qaApproved         Boolean              @default(false)
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  isDeleted          Boolean              @default(false)
+  deletedAt          DateTime?
+}
+
+model AuditLog {
+  id                 String               @id @default(uuid())
+  tenantId           String
+  tenant             Tenant               @relation(fields: [tenantId], references: [id])
+  userId             String?
+  actionType         String
+  entityType         String
+  entityId           String
+  beforeStateJson    String?              // Stored as JSON string
+  afterStateJson     String?              // Stored as JSON string
+  ipAddress          String?
+  timestamp          DateTime             @default(now())
+}
+
+model ConnectorToken {
+  id                      String               @id @default(uuid())
+  tenantId                String
+  tenant                  Tenant               @relation(fields: [tenantId], references: [id])
+  provider                String               // quickbooks, shopify, square
+  accessTokenEncrypted    String
+  refreshTokenEncrypted   String?
+  expiresAt               DateTime?
+  scope                   String?
+  createdAt               DateTime             @default(now())
+  updatedAt               DateTime             @updatedAt
+  isDeleted               Boolean              @default(false)
+  deletedAt               DateTime?
+
+  @@unique([tenantId, provider])
+}
+
+model ChatSession {
+  id                 String               @id @default(uuid())
+  tenantId           String
+  tenant             Tenant               @relation(fields: [tenantId], references: [id])
+  userId             String
+  channel            String
+  contextJson        String?              // Stored as JSON string
+  lastActiveAt       DateTime             @default(now())
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  isDeleted          Boolean              @default(false)
+  deletedAt          DateTime?
+}
+
+model DocumentEmbedding {
+  id            String   @id @default(uuid())
+  tenantId      String
+  tenant        Tenant   @relation(fields: [tenantId], references: [id])
+  entityType    String   // e.g., 'InventoryItem', 'SalesTransaction', 'Supplier'
+  entityId      String
+  content       String   // The text representation of the entity
+  embeddingJson String   // Stored as JSON string of number[]
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([tenantId])
+  @@unique([tenantId, entityType, entityId])
+}
