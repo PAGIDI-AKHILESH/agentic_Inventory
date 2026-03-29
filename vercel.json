@@ -1,0 +1,16 @@
+{
+  "functions": {
+    "app/api/webhooks/telegram/route.ts": {
+      "maxDuration": 60
+    },
+    "app/api/agents/**": {
+      "maxDuration": 60
+    },
+    "app/api/insights/**": {
+      "maxDuration": 60
+    },
+    "app/api/search/**": {
+      "maxDuration": 30
+    }
+  }
+}
