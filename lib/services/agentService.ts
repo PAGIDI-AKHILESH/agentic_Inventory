@@ -47,7 +47,7 @@ Be concise, professional, and helpful. If they ask about something not in the in
 If they ask for insights, analyze the stock levels and provide useful business advice (e.g., low stock warnings).`;
 
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-2.0-flash",
       contents: query,
       config: {
         systemInstruction,

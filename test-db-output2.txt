@@ -1,0 +1,9 @@
+=== PostgreSQL Database Connectivity Test ===
+DATABASE_URL: postgresql:***@helium/heliumdb?sslmode=disable
+
+Attempting to connect...
+??? FAILED: Could not connect to database.
+
+Error: Can't reach database server at `helium:5432`
+
+Please make sure your database server is running at `helium:5432`.

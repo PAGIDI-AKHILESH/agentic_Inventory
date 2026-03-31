@@ -1,6 +1,7 @@
 import { Telegraf, Markup, Context, session, Scenes } from 'telegraf';
 import { prisma } from '../db/prisma.ts';
 import { getAiClient } from '../ai/config.ts';
+import { generateTextWithFallback } from '../ai/fallback.ts';
 import { searchSimilarDocuments, syncTenantEmbeddings } from '../ai/vectorStore.ts';
 import { registerWizard, loginWizard, MyContext } from './scenes.ts';
 
@@ -218,31 +219,25 @@ You can use the following commands:
       return;
     }
 
-    const ai = getAi();
-    if (!ai) {
-      await ctx.reply('AI features are currently disabled because a valid Gemini API Key is not configured.');
-      return;
-    }
-
     await ctx.reply('🔍 Analyzing global and local market trends tailored to your business...');
     try {
       const prompt = `You are an enterprise business advisor. Find the latest real-world news and market trends specifically relevant to a "${user.tenant.businessType}" business named "${user.tenant.businessName}". Provide 3-4 highly actionable, detailed bullet points. Explain how each impacts their supply chain, pricing, or sales. Use real recent events.`;
-      const response = await ai.models.generateContent({
-        model: 'gemini-3.1-pro-preview',
-        contents: prompt,
-        config: { tools: [{ googleSearch: {} }] }
-      });
+      
+      const responseText = await generateTextWithFallback(prompt, { useSearch: true });
       
       const myCtx = ctx as MyContext;
       myCtx.session = myCtx.session || { cursor: 0 };
       myCtx.session.chatHistory = myCtx.session.chatHistory || [];
-      myCtx.session.chatHistory.push({ role: 'model', text: response.text || '' });
+      myCtx.session.chatHistory.push({ role: 'model', text: responseText });
 
-      await ctx.replyWithMarkdown(`📰 *Personalized Market Intelligence:*\n\n${response.text}`);
-    } catch (error) {
+      await ctx.replyWithMarkdown(`📰 *Personalized Market Intelligence:*\n\n${responseText}`);
+    } catch (error: any) {
       const err = error as Error;
-      if (err?.message?.includes('API key not valid')) {
+      const errMessage = err?.message || '';
+      if (errMessage.includes('API key not valid')) {
         await ctx.reply('AI features are currently disabled because a valid Gemini API Key is not configured.');
+      } else if (error.status === 429 || errMessage.includes('429') || errMessage.includes('quota')) {
+        await ctx.reply('⏳ The AI assistant is currently receiving high traffic. Please wait a few moments and try again.');
       } else {
         console.error('News error:', error);
         await ctx.reply('Sorry, I encountered an error fetching your personalized news.');
@@ -258,12 +253,6 @@ You can use the following commands:
     const user = await getUserByChatId(ctx.chat.id);
     if (!user) {
       await ctx.reply('Please /login or /register first.');
-      return;
-    }
-
-    const ai = getAi();
-    if (!ai) {
-      await ctx.reply('AI features are currently disabled because a valid Gemini API Key is not configured.');
       return;
     }
 
@@ -318,22 +307,22 @@ You can use the following commands:
         4. Key Recommendations
       `;
 
-      const response = await ai.models.generateContent({
-        model: 'gemini-3.1-pro-preview',
-        contents: prompt,
-      });
+      const responseText = await generateTextWithFallback(prompt);
 
       const myCtx = ctx as MyContext;
       myCtx.session = myCtx.session || { cursor: 0 };
       myCtx.session.chatHistory = myCtx.session.chatHistory || [];
-      myCtx.session.chatHistory.push({ role: 'model', text: response.text || '' });
+      myCtx.session.chatHistory.push({ role: 'model', text: responseText });
 
       await ctx.replyWithPhoto(chartUrl, { caption: '📈 Inventory Value Distribution' });
-      await ctx.replyWithMarkdown(response.text || 'Failed to generate report.');
-    } catch (error) {
+      await ctx.replyWithMarkdown(responseText || 'Failed to generate report.');
+    } catch (error: any) {
       const err = error as Error;
-      if (err?.message?.includes('API key not valid')) {
+      const errMessage = err?.message || '';
+      if (errMessage.includes('API key not valid')) {
         await ctx.reply('AI features are currently disabled because a valid Gemini API Key is not configured.');
+      } else if (error.status === 429 || errMessage.includes('429') || errMessage.includes('quota')) {
+        await ctx.reply('⏳ The AI assistant is currently receiving high traffic. Please wait a few moments and try again.');
       } else {
         console.error('Report Error:', error);
         await ctx.reply('Sorry, I encountered an error generating your report.');
@@ -491,12 +480,6 @@ You can use the following commands:
     const user = await getUserByChatId(ctx.chat.id);
     if (!user) return ctx.reply('Please /login or /register first.');
 
-    const ai = getAi();
-    if (!ai) {
-      await ctx.reply('AI features are currently disabled because a valid Gemini API Key is not configured.');
-      return;
-    }
-
     await ctx.reply('🔮 Analyzing historical data to generate demand forecasts...');
     try {
       const items = await prisma.inventoryItem.findMany({
@@ -514,21 +497,21 @@ You can use the following commands:
         Items: ${JSON.stringify(items.map(i => ({ name: i.name, currentStock: i.currentStock, safetyStock: i.safetyStockLevel })))}
       `;
 
-      const response = await ai.models.generateContent({
-        model: 'gemini-3.1-pro-preview',
-        contents: prompt
-      });
+      const responseText = await generateTextWithFallback(prompt);
 
       const myCtx = ctx as MyContext;
       myCtx.session = myCtx.session || { cursor: 0 };
       myCtx.session.chatHistory = myCtx.session.chatHistory || [];
-      myCtx.session.chatHistory.push({ role: 'model', text: response.text || '' });
+      myCtx.session.chatHistory.push({ role: 'model', text: responseText });
 
-      await ctx.replyWithMarkdown(response.text || 'Failed to generate forecast.');
-    } catch (error) {
+      await ctx.replyWithMarkdown(responseText || 'Failed to generate forecast.');
+    } catch (error: any) {
       const err = error as Error;
-      if (err?.message?.includes('API key not valid')) {
+      const errMessage = err?.message || '';
+      if (errMessage.includes('API key not valid')) {
         await ctx.reply('AI features are currently disabled because a valid Gemini API Key is not configured.');
+      } else if (error.status === 429 || errMessage.includes('429') || errMessage.includes('quota')) {
+        await ctx.reply('⏳ The AI assistant is currently receiving high traffic. Please wait a few moments and try again.');
       } else {
         console.error('Forecasting error:', error);
         await ctx.reply('Sorry, I encountered an error generating the forecast.');
@@ -659,12 +642,6 @@ You can use the following commands:
       return;
     }
 
-    const ai = getAi();
-    if (!ai) {
-      await ctx.reply('AI features are currently disabled because a valid Gemini API Key is not configured.');
-      return;
-    }
-
     await ctx.sendChatAction('typing');
 
     try {
@@ -705,15 +682,9 @@ You can use the following commands:
         3. Maintain a professional yet approachable tone.
       `;
 
-      const response = await ai.models.generateContent({
-        model: 'gemini-3.1-pro-preview',
-        contents: prompt,
-        config: {
-          tools: [{ googleSearch: {} }]
-        }
-      });
+      const responseText = await generateTextWithFallback(prompt, { useSearch: true });
 
-      const replyText = response.text || 'I am unable to process that request right now.';
+      const replyText = responseText || 'I am unable to process that request right now.';
       
       myCtx.session.chatHistory.push({ role: 'user', text });
       myCtx.session.chatHistory.push({ role: 'model', text: replyText });
@@ -722,10 +693,13 @@ You can use the following commands:
       }
 
       await ctx.replyWithMarkdown(replyText);
-    } catch (error) {
+    } catch (error: any) {
       const err = error as Error;
-      if (err?.message?.includes('API key not valid')) {
+      const errMessage = err?.message || '';
+      if (errMessage.includes('API key not valid')) {
         await ctx.reply('AI features are currently disabled because a valid Gemini API Key is not configured.');
+      } else if (error.status === 429 || errMessage.includes('429') || errMessage.includes('quota')) {
+        await ctx.reply('⏳ The AI assistant is currently receiving high traffic. Please wait a few moments and try again.');
       } else {
         console.error('AI Chat Error:', error);
         await ctx.reply('Sorry, I encountered an error processing your request.');

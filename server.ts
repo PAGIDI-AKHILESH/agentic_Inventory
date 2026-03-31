@@ -33,6 +33,10 @@ async function generateBackgroundInsights() {
     });
 
     for (const tenant of tenants) {
+      // Add a 6-second delay between processing each tenant to respect the
+      // Gemini 2.0 Flash Free Tier limit of 15 Requests Per Minute.
+      await new Promise(resolve => setTimeout(resolve, 6000));
+
       // Fetch inventory and recent sales
       const items = await prisma.inventoryItem.findMany({
         where: { tenantId: tenant.id },
@@ -95,7 +99,7 @@ async function generateBackgroundInsights() {
           
           const { Type } = await import('@google/genai');
           const response = await ai.models.generateContent({
-            model: 'gemini-3.1-pro-preview',
+            model: 'gemini-2.0-flash',
             contents: prompt,
             config: { 
               responseMimeType: 'application/json',
@@ -169,14 +173,18 @@ async function generateBackgroundInsights() {
           }
           
           console.log(`Generated predictive insight for tenant: ${tenant.id}`);
-        } catch (aiError) {
-          const err = aiError as Error;
-          if (err?.message?.includes('API key not valid')) {
+        } catch (aiError: any) {
+          const errMessage = aiError?.message || '';
+          if (errMessage.includes('API key not valid')) {
             if (!hasLoggedInvalidKeyError) {
               console.log('Skipping AI insights generation: Valid Gemini API Key not found.');
               hasLoggedInvalidKeyError = true;
             }
             break; // Stop processing other tenants if the API key is invalid
+          } else if (aiError.status === 429 || errMessage.includes('429') || errMessage.includes('quota')) {
+            console.warn(`Rate limit (429) hit while generating background insights. Pausing for 60 seconds...`);
+            await new Promise(resolve => setTimeout(resolve, 60000));
+            // Do not break; it will resume the next tenant after slowing down.
           } else {
             console.error(`Failed to generate AI insight for tenant ${tenant.id}:`, aiError);
           }
@@ -211,9 +219,13 @@ app.prepare().then(() => {
   });
 
   // Run once on startup after a short delay
+  // COMMENTED OUT: Running this on every startup rapidly consumes the 15-requests/minute free-tier Gemini API quota.
+  // We will leave this exclusively to the cron schedule during development to preserve quota for the Chatbot and Telegram bot!
+  /*
   setTimeout(() => {
     generateBackgroundInsights();
   }, 10000);
+  */
 
   // Start Telegram Bot
   try {
@@ -232,7 +244,7 @@ app.prepare().then(() => {
   process.once('SIGINT', () => shutdown('SIGINT'));
   process.once('SIGTERM', () => shutdown('SIGTERM'));
 
-  createServer((req, res) => {
+  const server = createServer((req, res) => {
     const parsedUrl = parse(req.url!, true);
     if (parsedUrl.pathname === '/api/health') {
       res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -241,7 +253,16 @@ app.prepare().then(() => {
     }
 
     handle(req, res, parsedUrl);
-  }).listen(3000, () => {
+  });
+
+  // Handle Hot Module Replacement (HMR) upgrade requests
+  server.on('upgrade', (req, socket, head) => {
+    if (req.url?.startsWith('/_next/webpack-hmr')) {
+      app.getUpgradeHandler()(req, socket, head);
+    }
+  });
+
+  server.listen(3000, () => {
     console.log('> Ready on http://localhost:3000');
     console.log('> Background jobs scheduled.');
   });

@@ -48,6 +48,11 @@ export default function ChatWidget() {
           ...prev,
           { id: Date.now() + 1, role: 'assistant', content: data.data.response }
         ]);
+      } else if (response.status === 429 || data.message === 'RATE_LIMIT_EXCEEDED') {
+        setMessages((prev) => [
+          ...prev,
+          { id: Date.now() + 1, role: 'assistant', content: 'The AI assistant is currently receiving high traffic. Please wait a few moments and try again.' }
+        ]);
       } else {
         setMessages((prev) => [
           ...prev,

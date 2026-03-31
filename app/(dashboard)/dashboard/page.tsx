@@ -203,8 +203,8 @@ export default function DashboardPage() {
           <div className="flex justify-between items-center mb-8">
             <h3 className="font-headline text-lg font-bold">7-Day Revenue Trend</h3>
           </div>
-          <div className="h-64 w-full">
-            <ResponsiveContainer width="100%" height="100%">
+          <div style={{ width: '100%', height: '256px' }}>
+            <ResponsiveContainer width="100%" height={256}>
               <BarChart data={salesTrend}>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" vertical={false} />
                 <XAxis 

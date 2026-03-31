@@ -134,7 +134,7 @@ export async function GET(req: NextRequest) {
     let analysis;
     try {
       const response = await ai.models.generateContent({
-        model: 'gemini-3.1-pro-preview',
+        model: 'gemini-2.0-flash',
         contents: prompt,
         config: {
           responseMimeType: 'application/json',

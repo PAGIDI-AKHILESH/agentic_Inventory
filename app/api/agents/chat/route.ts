@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/core/auth';
-import { getAiClient } from '@/lib/ai/config';
+import { generateTextWithFallback } from '@/lib/ai/fallback';
 import { searchSimilarDocuments } from '@/lib/ai/vectorStore';
 import { prisma } from '@/lib/db/prisma';
 
@@ -20,12 +20,6 @@ export async function POST(request: Request) {
     }
 
     const { message } = await request.json();
-    
-    const ai = getAiClient();
-    if (!ai) {
-      return NextResponse.json({ error: 'Gemini API Key not configured' }, { status: 500 });
-    }
-    
     // Retrieve context using RAG
     const similarDocs = await searchSimilarDocuments(payload.tenantId, message, 5);
     const context = similarDocs.map(doc => doc.content).join('\n\n');
@@ -55,21 +49,28 @@ ${message}
 Please provide a helpful, concise, and professional response based on the context provided. If the context does not contain the answer, you can give general advice but clarify that you don't have the specific data.
 `;
 
-    const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
-      contents: prompt,
-    });
+    const responseText = await generateTextWithFallback(prompt);
 
     return NextResponse.json({
       success: true,
       data: {
-        response: response.text,
+        response: responseText,
         agent: "Inventory Intelligence Coordinator",
         timestamp: new Date().toISOString()
       }
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Chat API Error:', error);
+    
+    // Check for Gemini 429 / Quota Error
+    const errMessage = error?.message || '';
+    if (error?.status === 429 || errMessage.includes('429') || errMessage.includes('quota')) {
+      return NextResponse.json({
+        success: false,
+        message: 'RATE_LIMIT_EXCEEDED'
+      }, { status: 429 });
+    }
+
     return NextResponse.json({
       success: false,
       message: 'Failed to process message'
