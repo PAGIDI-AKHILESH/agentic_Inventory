@@ -4,6 +4,10 @@ import { getAiClient } from './lib/ai/config.ts';
 async function test() {
   try {
     const ai = getAiClient();
+    if (!ai) {
+      console.log('Gemini API key not configured, skipping gemini test.');
+      return;
+    }
     console.log('Testing Normal Chat...');
     const response = await ai.models.generateContent({
       model: 'gemini-2.0-flash',
