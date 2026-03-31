@@ -4,6 +4,7 @@ import { useState, useRef } from 'react';
 import { Store, Package, Users, CheckCircle, ArrowRight, Loader2, UploadCloud, Check, MessageCircle, Info } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/hooks/useAuth';
+import * as xlsx from 'xlsx';
 
 export default function SetupPage() {
   const router = useRouter();
@@ -129,8 +130,15 @@ export default function SetupPage() {
 
     const reader = new FileReader();
     reader.onload = (event) => {
-      const csv = event.target?.result as string;
-      const lines = csv.split('\n').filter(line => line.trim() !== '');
+      const fileContent = event.target?.result;
+      if (!fileContent) return;
+      
+      const workbook = xlsx.read(fileContent, { type: 'array' });
+      const firstSheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[firstSheetName];
+      const csv = xlsx.utils.sheet_to_csv(worksheet);
+      
+      const lines = csv.split('\n').filter((line: string) => line.trim() !== '');
       if (lines.length < 2) return; // Need at least headers and one row
 
       const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
@@ -154,7 +162,7 @@ export default function SetupPage() {
 
       setFormData({ ...formData, inventoryItems: parsedItems });
     };
-    reader.readAsText(file);
+    reader.readAsArrayBuffer(file);
   };
 
   const handleNext = async () => {
@@ -465,7 +473,7 @@ export default function SetupPage() {
             <div className="space-y-6">
               <input 
                 type="file" 
-                accept=".csv" 
+                accept=".csv, .xls, .xlsx, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel" 
                 ref={fileInputRef} 
                 className="hidden" 
                 onChange={handleFileUpload}
@@ -479,7 +487,7 @@ export default function SetupPage() {
                   <div className="w-16 h-16 rounded-full bg-surface-container flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                     <UploadCloud className="text-secondary w-8 h-8" />
                   </div>
-                  <p className="font-bold text-lg text-on-surface mb-1">Upload CSV File</p>
+                  <p className="font-bold text-lg text-on-surface mb-1">Upload Spreadsheet</p>
                   <p className="text-sm text-on-surface-variant text-center max-w-xs">
                     Import your existing product catalog and stock levels. Must include SKU, Name, and Stock columns.
                   </p>
