@@ -714,6 +714,13 @@ export function startTelegramBot() {
     return;
   }
 
+  // SAFEGUARD: Prevent local dev environments from accidentally deleting the production webhook
+  if (process.env.NODE_ENV !== 'production' && process.env.ENABLE_LOCAL_TELEGRAM !== 'true') {
+    console.log('> 🛡️ [SAFEGUARD] Skipping Telegram bot initialization in local development.');
+    console.log('> 🛡️ To test the bot locally and redirect traffic here, set ENABLE_LOCAL_TELEGRAM=true in your .env file.');
+    return;
+  }
+
   initBotHandlers();
 
   // In the AI Studio dev environment, inbound requests are protected by an auth proxy.
@@ -721,8 +728,10 @@ export function startTelegramBot() {
   // Therefore, we must use long polling (bot.launch) which makes outbound requests.
   bot.telegram.deleteWebhook({ drop_pending_updates: true })
     .then(() => {
-      console.log('> Telegram Webhook deleted. Starting with long polling...');
-      return bot.launch();
+      console.log('> ⚠️ Telegram Webhook deleted for local development. Starting with long polling...');
+      console.log('> 🛑 IMPORTANT: If you have deployed to Vercel, you must re-register your webhook by visiting /api/webhooks/telegram/register on your production domain after stopping this dev server!');
+      // Note: bot.launch() returns a Promise that only resolves when the bot stops.
+      bot.launch();
     })
     .then(() => {
       console.log('> Telegram Bot started successfully with long polling.');

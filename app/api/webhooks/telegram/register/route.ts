@@ -5,15 +5,29 @@ import { NextResponse } from 'next/server';
  * Call this endpoint ONCE after deployment to register the Telegram webhook.
  * It tells Telegram to send all bot updates to your Vercel deployment URL.
  */
-export async function GET() {
+export async function GET(req: Request) {
   const token = process.env.TELEGRAM_BOT_TOKEN;
-  const appUrl = process.env.APP_URL;
+  
+  // Use host header to construct the APP_URL automatically!
+  const host = req.headers.get('host');
+  const protocol = host?.includes('localhost') ? 'http' : 'https';
+  let appUrl = process.env.APP_URL;
+
+  if (!appUrl || appUrl.includes('localhost')) {
+      if (host) {
+          appUrl = `https://${host}`;
+      } else {
+          return NextResponse.json({ error: 'APP_URL not configured and host unavailable' }, { status: 500 });
+      }
+  }
+
+  // Force HTTPS if it accidentally contains http://
+  if (appUrl.startsWith('http://') && !appUrl.includes('localhost')) {
+      appUrl = appUrl.replace('http://', 'https://');
+  }
 
   if (!token) {
     return NextResponse.json({ error: 'TELEGRAM_BOT_TOKEN not configured' }, { status: 500 });
-  }
-  if (!appUrl) {
-    return NextResponse.json({ error: 'APP_URL not configured' }, { status: 500 });
   }
 
   const webhookUrl = `${appUrl}/api/webhooks/telegram`;
